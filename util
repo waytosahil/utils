@@ -1,96 +1,79 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Server & Service Status Tree</title>
+    <title>Service Status Dashboard</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
-        h1 { text-align: center; }
-        .server { background: #fff; margin: 10px auto; padding: 10px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1); max-width: 600px; }
-        .server-header { display: flex; align-items: center; cursor: pointer; }
-        .toggle { margin-right: 10px; font-weight: bold; }
-        .services { display: none; margin-left: 20px; margin-top: 10px; }
-        .service { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #ddd; }
-        .service:last-child { border-bottom: none; }
-        .status-running { color: green; font-weight: bold; }
-        .status-stopped { color: orange; font-weight: bold; }
-        .status-error { color: red; font-weight: bold; }
-        .status-notfound { color: gray; font-style: italic; }
-        .refresh { text-align: center; margin: 20px; }
-        button { padding: 8px 16px; font-size: 14px; cursor: pointer; border: none; background: #007bff; color: #fff; border-radius: 4px; }
-        button:hover { background: #0056b3; }
+        .server { font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .service { margin-left: 20px; display: none; }
+        .running { color: green; }
+        .stopped { color: red; }
+        .error { color: orange; }
+        #refresh-btn { margin-bottom: 15px; padding: 8px 16px; font-size: 14px; }
     </style>
 </head>
 <body>
-    <h1>Server & Service Status Tree</h1>
-    <div class="refresh">
-        <button onclick="fetchStatus()">Refresh Status</button>
-    </div>
+    <h1>Service Status Dashboard</h1>
+    <button id="refresh-btn" onclick="fetchStatus()">Refresh</button>
     <div id="status-container"></div>
 
     <script>
         async function fetchStatus() {
+            const response = await fetch('/status');
+            const data = await response.json();
+
             const container = document.getElementById('status-container');
-            container.innerHTML = '<p>Loading...</p>';
-            try {
-                const response = await fetch('/status');
-                const data = await response.json();
-                container.innerHTML = '';
-                data.forEach((server, index) => {
-                    const serverDiv = document.createElement('div');
-                    serverDiv.className = 'server';
+            container.innerHTML = '';
 
-                    const header = document.createElement('div');
-                    header.className = 'server-header';
-                    header.innerHTML = `<span class="toggle" id="toggle-${index}">[+]</span> <h2>${server.name}</h2>`;
-                    header.onclick = () => toggleServices(index);
+            // Group by server
+            const serverMap = {};
+            data.forEach(item => {
+                if (!serverMap[item.server]) {
+                    serverMap[item.server] = [];
+                }
+                serverMap[item.server].push(item);
+            });
 
-                    const servicesDiv = document.createElement('div');
-                    servicesDiv.className = 'services';
-                    servicesDiv.id = `services-${index}`;
+            // Build tree
+            Object.keys(serverMap).forEach(server => {
+                const serverDiv = document.createElement('div');
+                serverDiv.className = 'server';
+                serverDiv.textContent = `+ ${server}`;
+                serverDiv.onclick = function() {
+                    const services = this.nextElementSibling;
+                    if (services.style.display === 'none') {
+                        services.style.display = 'block';
+                        this.textContent = `− ${server}`;
+                    } else {
+                        services.style.display = 'none';
+                        this.textContent = `+ ${server}`;
+                    }
+                };
+                container.appendChild(serverDiv);
 
-                    server.services.forEach(service => {
-                        let statusClass = 'status-error';
-                        let displayStatus = service.status;
-
-                        if (service.status.toLowerCase().includes('running')) {
-                            statusClass = 'status-running';
-                        } else if (service.status.toLowerCase().includes('stopped')) {
-                            statusClass = 'status-stopped';
-                        } else if (service.status.toLowerCase().includes('not found')) {
-                            statusClass = 'status-notfound';
-                            displayStatus = 'Not Available';
-                        }
-
-                        servicesDiv.innerHTML += `
-                            <div class="service">
-                                <span>${service.name}</span>
-                                <span class="${statusClass}">${displayStatus}</span>
-                            </div>`;
-                    });
-
-                    serverDiv.appendChild(header);
-                    serverDiv.appendChild(servicesDiv);
-                    container.appendChild(serverDiv);
-                });
-            } catch (error) {
-                container.innerHTML = `<p style="color:red;">Failed to load status: ${error}</p>`;
-            }
-        }
-
-        function toggleServices(index) {
-            const servicesDiv = document.getElementById(`services-${index}`);
-            const toggleSymbol = document.getElementById(`toggle-${index}`);
-            if (servicesDiv.style.display === 'none' || servicesDiv.style.display === '') {
-                servicesDiv.style.display = 'block';
-                toggleSymbol.textContent = '[-]';
-            } else {
+                const servicesDiv = document.createElement('div');
+                servicesDiv.className = 'service';
                 servicesDiv.style.display = 'none';
-                toggleSymbol.textContent = '[+]';
-            }
+
+                serverMap[server].forEach(item => {
+                    const serviceDiv = document.createElement('div');
+                    let statusClass = '';
+                    if (item.status.includes('Running')) {
+                        statusClass = 'running';
+                    } else if (item.status.includes('Stopped')) {
+                        statusClass = 'stopped';
+                    } else {
+                        statusClass = 'error';
+                    }
+                    serviceDiv.innerHTML = `${item.service}: <span class="${statusClass}">${item.status}</span>`;
+                    servicesDiv.appendChild(serviceDiv);
+                });
+
+                container.appendChild(servicesDiv);
+            });
         }
 
-        window.onload = fetchStatus;
+        // Initial load
+        fetchStatus();
     </script>
 </body>
 </html>
