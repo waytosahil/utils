@@ -55,24 +55,35 @@
             font-size: 18px;
             cursor: pointer;
             color: #343a40;
+            user-select: none;
         }
 
-        .service-list {
+        .service-table {
+            width: 100%;
+            border-collapse: collapse;
             margin-top: 10px;
-            margin-left: 20px;
             display: none;
         }
 
-        .service {
-            padding: 4px 0;
+        .service-table th, .service-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .service-table th {
+            background-color: #e9ecef;
         }
 
         .status-tag {
-            padding: 2px 6px;
+            padding: 4px 8px;
             border-radius: 4px;
             font-size: 12px;
             font-weight: bold;
             color: white;
+            display: inline-block;
+            min-width: 70px;
+            text-align: center;
         }
 
         .running {
@@ -136,43 +147,70 @@
                 const serverBox = document.createElement('div');
                 serverBox.className = 'server-box';
 
+                // Server header with expand/collapse
                 const serverDiv = document.createElement('div');
                 serverDiv.className = 'server';
                 serverDiv.textContent = `+ ${server}`;
                 serverDiv.onclick = function() {
-                    const services = this.nextElementSibling;
-                    if (services.style.display === 'none') {
-                        services.style.display = 'block';
+                    const table = this.nextElementSibling;
+                    if (table.style.display === 'none') {
+                        table.style.display = 'table';
                         this.textContent = `− ${server}`;
                     } else {
-                        services.style.display = 'none';
+                        table.style.display = 'none';
                         this.textContent = `+ ${server}`;
                     }
                 };
                 serverBox.appendChild(serverDiv);
 
-                const servicesDiv = document.createElement('div');
-                servicesDiv.className = 'service-list';
-                servicesDiv.style.display = 'none';
+                // Service status table
+                const table = document.createElement('table');
+                table.className = 'service-table';
+                table.style.display = 'none';
 
+                // Table header
+                const thead = document.createElement('thead');
+                thead.innerHTML = `
+                    <tr>
+                        <th>Service Name</th>
+                        <th>Status</th>
+                    </tr>
+                `;
+                table.appendChild(thead);
+
+                // Table body with services
+                const tbody = document.createElement('tbody');
                 serverMap[server].forEach(item => {
-                    const serviceDiv = document.createElement('div');
-                    serviceDiv.className = 'service';
+                    const tr = document.createElement('tr');
 
-                    let statusClass = '';
-                    if (item.status.toLowerCase().includes('running')) {
+                    const serviceTd = document.createElement('td');
+                    serviceTd.textContent = item.service || '[Unknown]';
+
+                    const statusTd = document.createElement('td');
+                    const statusSpan = document.createElement('span');
+
+                    const status = item.status ? item.status.toLowerCase() : '';
+                    let statusClass = 'error';
+
+                    if (status.includes('running')) {
                         statusClass = 'running';
-                    } else if (item.status.toLowerCase().includes('stopped')) {
+                    } else if (status.includes('stopped')) {
                         statusClass = 'stopped';
-                    } else {
-                        statusClass = 'error';
                     }
 
-                    serviceDiv.innerHTML = `${item.service}: <span class="status-tag ${statusClass}">${item.status}</span>`;
-                    servicesDiv.appendChild(serviceDiv);
-                });
+                    statusSpan.className = `status-tag ${statusClass}`;
+                    statusSpan.textContent = item.status || 'Unknown';
 
-                serverBox.appendChild(servicesDiv);
+                    statusTd.appendChild(statusSpan);
+
+                    tr.appendChild(serviceTd);
+                    tr.appendChild(statusTd);
+
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+
+                serverBox.appendChild(table);
                 container.appendChild(serverBox);
             });
         }
@@ -180,8 +218,8 @@
         function applyFilter() {
             const query = document.getElementById('search-box').value.trim().toLowerCase();
             const filtered = rawData.filter(item =>
-                item.server.toLowerCase().includes(query) ||
-                item.service.toLowerCase().includes(query)
+                (item.server && item.server.toLowerCase().includes(query)) ||
+                (item.service && item.service.toLowerCase().includes(query))
             );
             renderStatus(filtered);
         }
