@@ -13,7 +13,9 @@
         .service { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #ddd; }
         .service:last-child { border-bottom: none; }
         .status-running { color: green; font-weight: bold; }
-        .status-stopped, .status-error { color: red; font-weight: bold; }
+        .status-stopped { color: orange; font-weight: bold; }
+        .status-error { color: red; font-weight: bold; }
+        .status-notfound { color: gray; font-style: italic; }
         .refresh { text-align: center; margin: 20px; }
         button { padding: 8px 16px; font-size: 14px; cursor: pointer; border: none; background: #007bff; color: #fff; border-radius: 4px; }
         button:hover { background: #0056b3; }
@@ -48,12 +50,22 @@
                     servicesDiv.id = `services-${index}`;
 
                     server.services.forEach(service => {
-                        const statusClass = service.status.toLowerCase().includes('running') ? 'status-running'
-                                          : (service.status.toLowerCase().includes('stopped') ? 'status-stopped' : 'status-error');
+                        let statusClass = 'status-error';
+                        let displayStatus = service.status;
+
+                        if (service.status.toLowerCase().includes('running')) {
+                            statusClass = 'status-running';
+                        } else if (service.status.toLowerCase().includes('stopped')) {
+                            statusClass = 'status-stopped';
+                        } else if (service.status.toLowerCase().includes('not found')) {
+                            statusClass = 'status-notfound';
+                            displayStatus = 'Not Available';
+                        }
+
                         servicesDiv.innerHTML += `
                             <div class="service">
                                 <span>${service.name}</span>
-                                <span class="${statusClass}">${service.status}</span>
+                                <span class="${statusClass}">${displayStatus}</span>
                             </div>`;
                     });
 
