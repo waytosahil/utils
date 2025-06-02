@@ -3,28 +3,127 @@
 <head>
     <title>Service Status Dashboard</title>
     <style>
-        .server { font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .service { margin-left: 20px; display: none; }
-        .running { color: green; }
-        .stopped { color: red; }
-        .error { color: orange; }
-        #refresh-btn { margin-bottom: 15px; padding: 8px 16px; font-size: 14px; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #343a40;
+        }
+
+        #search-box {
+            display: block;
+            margin: 0 auto 20px auto;
+            padding: 8px;
+            width: 300px;
+            font-size: 16px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+
+        #refresh-btn {
+            display: block;
+            margin: 0 auto 20px auto;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #refresh-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .server-box {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .server {
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            color: #343a40;
+        }
+
+        .service-list {
+            margin-top: 10px;
+            margin-left: 20px;
+            display: none;
+        }
+
+        .service {
+            padding: 4px 0;
+        }
+
+        .status-tag {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .running {
+            background-color: #28a745;
+        }
+
+        .stopped {
+            background-color: #dc3545;
+        }
+
+        .error {
+            background-color: #ffc107;
+            color: #212529;
+        }
     </style>
 </head>
 <body>
     <h1>Service Status Dashboard</h1>
+    <input type="text" id="search-box" placeholder="Search server or service..." oninput="applyFilter()">
     <button id="refresh-btn" onclick="fetchStatus()">Refresh</button>
     <div id="status-container"></div>
 
     <script>
-        async function fetchStatus() {
-            const response = await fetch('/status');
-            const data = await response.json();
+        let rawData = [];
 
+        async function fetchStatus() {
+            const container = document.getElementById('status-container');
+            container.innerHTML = 'Loading...';
+
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+
+                if (!Array.isArray(data)) {
+                    container.innerHTML = `<p style="color: red;">Error: Invalid data format received.</p>`;
+                    console.warn('Received non-array data:', data);
+                    return;
+                }
+
+                rawData = data;
+                renderStatus(data);
+            } catch (err) {
+                container.innerHTML = `<p style="color: red;">Error fetching status data.</p>`;
+                console.error('Fetch error:', err);
+            }
+        }
+
+        function renderStatus(data) {
             const container = document.getElementById('status-container');
             container.innerHTML = '';
 
-            // Group by server
             const serverMap = {};
             data.forEach(item => {
                 if (!serverMap[item.server]) {
@@ -33,8 +132,10 @@
                 serverMap[item.server].push(item);
             });
 
-            // Build tree
             Object.keys(serverMap).forEach(server => {
+                const serverBox = document.createElement('div');
+                serverBox.className = 'server-box';
+
                 const serverDiv = document.createElement('div');
                 serverDiv.className = 'server';
                 serverDiv.textContent = `+ ${server}`;
@@ -48,28 +149,41 @@
                         this.textContent = `+ ${server}`;
                     }
                 };
-                container.appendChild(serverDiv);
+                serverBox.appendChild(serverDiv);
 
                 const servicesDiv = document.createElement('div');
-                servicesDiv.className = 'service';
+                servicesDiv.className = 'service-list';
                 servicesDiv.style.display = 'none';
 
                 serverMap[server].forEach(item => {
                     const serviceDiv = document.createElement('div');
+                    serviceDiv.className = 'service';
+
                     let statusClass = '';
-                    if (item.status.includes('Running')) {
+                    if (item.status.toLowerCase().includes('running')) {
                         statusClass = 'running';
-                    } else if (item.status.includes('Stopped')) {
+                    } else if (item.status.toLowerCase().includes('stopped')) {
                         statusClass = 'stopped';
                     } else {
                         statusClass = 'error';
                     }
-                    serviceDiv.innerHTML = `${item.service}: <span class="${statusClass}">${item.status}</span>`;
+
+                    serviceDiv.innerHTML = `${item.service}: <span class="status-tag ${statusClass}">${item.status}</span>`;
                     servicesDiv.appendChild(serviceDiv);
                 });
 
-                container.appendChild(servicesDiv);
+                serverBox.appendChild(servicesDiv);
+                container.appendChild(serverBox);
             });
+        }
+
+        function applyFilter() {
+            const query = document.getElementById('search-box').value.trim().toLowerCase();
+            const filtered = rawData.filter(item =>
+                item.server.toLowerCase().includes(query) ||
+                item.service.toLowerCase().includes(query)
+            );
+            renderStatus(filtered);
         }
 
         // Initial load
