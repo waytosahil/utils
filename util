@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Server & Service Status Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
+        h1 { text-align: center; }
+        .server { background: #fff; margin: 20px auto; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 600px; }
+        .server h2 { margin-top: 0; }
+        .service { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #ddd; }
+        .service:last-child { border-bottom: none; }
+        .status-running { color: green; font-weight: bold; }
+        .status-stopped, .status-error { color: red; font-weight: bold; }
+        .refresh { display: block; text-align: center; margin: 20px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; border: none; background: #007bff; color: #fff; border-radius: 5px; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Server & Service Status Dashboard</h1>
+    <div class="refresh">
+        <button onclick="fetchStatus()">Refresh Status</button>
+    </div>
+    <div id="status-container"></div>
+
+    <script>
+        async function fetchStatus() {
+            const container = document.getElementById('status-container');
+            container.innerHTML = '<p>Loading...</p>';
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+                container.innerHTML = '';
+                data.forEach(server => {
+                    const serverDiv = document.createElement('div');
+                    serverDiv.className = 'server';
+                    serverDiv.innerHTML = `<h2>${server.name}</h2>`;
+                    server.services.forEach(service => {
+                        const statusClass = service.status.toLowerCase().includes('running') ? 'status-running'
+                                          : (service.status.toLowerCase().includes('stopped') ? 'status-stopped' : 'status-error');
+                        serverDiv.innerHTML += `
+                            <div class="service">
+                                <span>${service.name}</span>
+                                <span class="${statusClass}">${service.status}</span>
+                            </div>`;
+                    });
+                    container.appendChild(serverDiv);
+                });
+            } catch (error) {
+                container.innerHTML = `<p style="color:red;">Failed to load status: ${error}</p>`;
+            }
+        }
+
+        // Fetch status on page load
+        window.onload = fetchStatus;
+    </script>
+</body>
+</html>
